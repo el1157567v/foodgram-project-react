@@ -121,6 +121,8 @@ USE_L10N = True
 USE_TZ = True
 
 
+MAX_STRING_LENGTH = 200
+
 
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')

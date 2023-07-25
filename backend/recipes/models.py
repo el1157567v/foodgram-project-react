@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
 from users.models import User
@@ -8,17 +9,17 @@ class Tag(models.Model):
 
     name = models.CharField(
         verbose_name='Название',
-        max_length=200,
+        max_length=settings.MAX_STRING_LENGTH,
         unique=True
     )
     color = models.CharField(
         verbose_name='Цвет в HEX',
-        max_length=7,
+        max_length=50,
         unique=True
     )
     slug = models.SlugField(
         verbose_name='Уникальный слаг',
-        max_length=200,
+        max_length=settings.MAX_STRING_LENGTH,
         unique=True
     )
 
@@ -36,11 +37,11 @@ class Ingredient(models.Model):
 
     name = models.CharField(
         verbose_name='Название',
-        max_length=200
+        max_length=settings.MAX_STRING_LENGTH
     )
     measurement_unit = models.CharField(
         verbose_name='Единица измерения',
-        max_length=200
+        max_length=settings.MAX_STRING_LENGTH
     )
 
     class Meta:
@@ -76,7 +77,7 @@ class Recipe(models.Model):
     )
     name = models.CharField(
         verbose_name='Название рецепта',
-        max_length=200
+        max_length=settings.MAX_STRING_LENGTH
     )
     text = models.TextField(verbose_name='Описание')
     cooking_time = models.PositiveIntegerField(

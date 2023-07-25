@@ -14,18 +14,18 @@ from users.models import Subscription, User
 
 from .filters import IngredientFilter, RecipeFilter
 from .permissions import IsAdminOrReadOnly, IsAuthorOrReadOnly
+from .recipe_user_functions import create_recipe_user, delete_recipe_user
 from .serializers import (ChangePasswordSerializer, CustomUserCreateSerializer,
                           CustomUserSerializer, IngredientSerializer,
-                          RecipeCreateSerializer, RecipeListSerializer,
-                          RecipeSerializer, SubscriptionSerializer,
-                          TagSerializer)
+                          RecipeCreateSerializer, RecipeSerializer,
+                          SubscriptionSerializer, TagSerializer)
 
 
 class CustomUserViewSet(
     mixins.CreateModelMixin, mixins.ListModelMixin,
     mixins.RetrieveModelMixin, viewsets.GenericViewSet
 ):
-    """Кастомный Viewset модели пользователя."""
+    """Кастомный Viewset для пользователя."""
     queryset = User.objects.all()
     permission_classes = [permissions.AllowAny]
 
@@ -39,6 +39,9 @@ class CustomUserViewSet(
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
+
+class SubscriptionsViewSet(viewsets.ModelViewSet):
+    """Viewset для подписки на авторов."""
     @action(detail=False, permission_classes=[permissions.IsAuthenticated])
     def subscriptions(self, request):
         queryset = User.objects.filter(following__user=request.user)
@@ -70,7 +73,9 @@ class CustomUserViewSet(
             )
         if request.method == 'DELETE':
             subscription.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
+            return Response(
+                {'message': 'Подписка на автора успешно удалена.'},
+                status=status.HTTP_204_NO_CONTENT)
         if subscription:
             return Response(
                 {'errors': 'Вы уже подписаны на этого автора.'},
@@ -94,7 +99,7 @@ class CustomUserViewSet(
 
 
 class CurrentUserMeView(views.APIView):
-    """View class просмотра текущего пользователя (себя)."""
+    """View для просмотра текущего пользователя (себя)."""
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
@@ -110,7 +115,7 @@ class CurrentUserMeView(views.APIView):
 
 
 class ChangePasswordView(views.APIView):
-    """View class изменения пароля."""
+    """View для изменения пароля."""
     permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
@@ -132,7 +137,7 @@ class ChangePasswordView(views.APIView):
 
 
 class TagViewSet(viewsets.ReadOnlyModelViewSet):
-    """Viewset модели тега."""
+    """Viewset для тега."""
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
     permission_classes = [IsAdminOrReadOnly]
@@ -140,7 +145,7 @@ class TagViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
-    """Viewset модели ингредиента."""
+    """Viewset для ингредиента."""
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
     pagination_class = None
@@ -150,7 +155,7 @@ class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
-    """Viewset модели рецепта."""
+    """Viewset для рецепта."""
     queryset = Recipe.objects.prefetch_related(
         'author', 'tags', 'ingredients').all()
     permission_classes = [IsAuthorOrReadOnly]
@@ -163,22 +168,28 @@ class RecipeViewSet(viewsets.ModelViewSet):
             return RecipeSerializer
         return RecipeCreateSerializer
 
+
+class FavoriteViewSet(viewsets.ModelViewSet):
+    """Viewset для избранного."""
     @action(methods=['post', 'delete'], detail=True)
     def favorite(self, request, pk):
         """Действия с избранным: добавляем/удаляем рецепт."""
         if request.method == "POST":
-            data, status = self.create_recipe_user(request, pk, Favorite)
+            data, status = create_recipe_user(request, pk, Favorite)
             return Response(data, status=status)
-        data, status = self.delete_recipe_user(request, pk, Favorite)
+        data, status = delete_recipe_user(request, pk, Favorite)
         return Response(data, status=status)
 
+
+class ShoppingCartViewSet(viewsets.ModelViewSet):
+    """Viewset для корзины покупок."""
     @action(methods=['post', 'delete'], detail=True)
     def shopping_cart(self, request, pk):
         """Действия с корзиной: добавляем/удаляем рецепт."""
         if request.method == "POST":
-            data, status = self.create_recipe_user(request, pk, ShoppingCart)
+            data, status = create_recipe_user(request, pk, ShoppingCart)
             return Response(data, status=status)
-        data, status = self.delete_recipe_user(request, pk, ShoppingCart)
+        data, status = delete_recipe_user(request, pk, ShoppingCart)
         return Response(data, status=status)
 
     @action(methods=['get'], detail=False,
@@ -213,35 +224,3 @@ class RecipeViewSet(viewsets.ModelViewSet):
             ingredient_list.append(f'{ingredient} - {amount} \n')
 
         return ingredient_list
-
-    def create_recipe_user(self, request, pk, model):
-        """Доп.функция: создаем связку рецепт<->пользователь по id рецепта."""
-        recipe = get_object_or_404(Recipe, id=pk)
-        obj, created = model.objects.get_or_create(
-            recipe=recipe,
-            user=request.user
-        )
-        if not created:
-            return (
-                {"message": f"Уже есть рецепт с id = {pk}."},
-                status.HTTP_400_BAD_REQUEST
-            )
-        serializer = RecipeListSerializer(
-            recipe,
-            context={'request': request}
-        )
-        return (serializer.data, status.HTTP_201_CREATED)
-
-    def delete_recipe_user(self, request, pk, model):
-        """Доп.функция: удаляем связку рецепт<->пользователь по id рецепта."""
-        recipe = get_object_or_404(Recipe, id=pk)
-        favorite_recipe = get_object_or_404(
-            model,
-            recipe=recipe,
-            user=request.user
-        )
-        favorite_recipe.delete()
-        return (
-            {"message": f"Рецепт с id = {pk} удален."},
-            status.HTTP_204_NO_CONTENT
-        )
