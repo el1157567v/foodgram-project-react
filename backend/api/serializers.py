@@ -5,7 +5,7 @@ from django.core.files.base import ContentFile
 from djoser.serializers import UserCreateSerializer, UserSerializer
 from recipes.models import Ingredient, Recipe, RecipeIngredients, Tag
 from rest_framework import serializers
-from users.models import User
+from users.models import Subscription, User
 
 
 class Base64ImageField(serializers.ImageField):
@@ -68,7 +68,7 @@ class ChangePasswordSerializer(serializers.Serializer):
 
 
 class SubscriptionSerializer(CustomUserSerializer):
-    """Сериализатор подписки на других авторов."""
+    """Сериализатор создания подписки на других авторов."""
     recipes = serializers.SerializerMethodField()
     recipes_count = serializers.SerializerMethodField()
 
@@ -96,6 +96,25 @@ class SubscriptionSerializer(CustomUserSerializer):
     def get_recipes_count(self, obj):
         """Определяем общее количество рецептов в подписке."""
         return obj.recipes.count()
+
+
+class SubscriptionValidateSerializer(serializers.Serializer):
+    """Сериализатор проверки подписки на других авторов."""
+    def validate(self, data):
+        request = self.context.get('request')
+        author = self.instance
+        subscription = Subscription.objects.filter(
+            user=request.user, author=author).exists()
+        if request.method == 'DELETE' and not subscription:
+            raise serializers.ValidationError(
+                'Подписка уже удалена.')
+        if subscription:
+            raise serializers.ValidationError(
+                'Вы уже подписаны на этого автора.')
+        if author == request.user:
+            raise serializers.ValidationError(
+                'Вы не можете подписаться на самого себя.')
+        return data
 
 
 class TagSerializer(serializers.ModelSerializer):
@@ -244,12 +263,9 @@ class RecipeCreateSerializer(RecipeSerializer):
         """Доп.функция: создаем связку рецепт<->ингредиент."""
         recipe_ingredients = []
         for ing in ingredients:
-            ingredient_id = ing['id']
-            ingredient_amount = ing['amount']
-            ingredient = Ingredient.objects.get(id=ingredient_id)
             recipe_ingredient = RecipeIngredients(
                 recipe=recipe,
-                ingredient=ingredient,
-                amount=ingredient_amount)
+                ingredient_id=ing['id'],
+                amount=ing['amount'])
             recipe_ingredients.append(recipe_ingredient)
         RecipeIngredients.objects.bulk_create(recipe_ingredients)

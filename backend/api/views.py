@@ -5,7 +5,8 @@ from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from recipes.models import (Favorite, Ingredient, Recipe, RecipeIngredients,
                             ShoppingCart, Tag)
-from rest_framework import mixins, permissions, status, views, viewsets
+from rest_framework import (exceptions, mixins, permissions, status, views,
+                            viewsets)
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
@@ -18,7 +19,8 @@ from .recipe_user_functions import create_recipe_user, delete_recipe_user
 from .serializers import (ChangePasswordSerializer, CustomUserCreateSerializer,
                           CustomUserSerializer, IngredientSerializer,
                           RecipeCreateSerializer, RecipeSerializer,
-                          SubscriptionSerializer, TagSerializer)
+                          SubscriptionSerializer,
+                          SubscriptionValidateSerializer, TagSerializer)
 
 
 class CustomUserViewSet(
@@ -66,34 +68,26 @@ class SubscriptionsViewSet(viewsets.ModelViewSet):
         author = get_object_or_404(User, id=pk)
         subscription = Subscription.objects.filter(
             user=request.user, author=author)
-        if request.method == 'DELETE' and not subscription:
-            return Response(
-                {'errors': 'Подписка уже удалена.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        if request.method == 'DELETE':
+        serializer = SubscriptionValidateSerializer(
+            author,
+            data=request.data,
+            context={'request': request}
+        )
+        if request.method == 'DELETE' and subscription:
             subscription.delete()
             return Response(
                 {'message': 'Подписка на автора успешно удалена.'},
                 status=status.HTTP_204_NO_CONTENT)
-        if subscription:
-            return Response(
-                {'errors': 'Вы уже подписаны на этого автора.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        if author == request.user:
-            return Response(
-                {'errors': 'Вы не можете подписаться на самого себя.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        try:
+            serializer.is_valid(raise_exception=True)
+        except exceptions.ValidationError as errors_valid_subscribe:
+            return Response({'errors': errors_valid_subscribe.detail},
+                            status=status.HTTP_400_BAD_REQUEST)
+
         Subscription.objects.create(user=request.user, author=author)
         serializer = SubscriptionSerializer(
             author,
-            context={
-                'request': request,
-                'format': self.format_kwarg,
-                'view': self
-            }
+            context={'request': request}
         )
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -124,16 +118,12 @@ class ChangePasswordView(views.APIView):
             context={'request': request}
         )
         serializer.is_valid(raise_exception=True)
-
         user = request.user
         new_password = serializer.validated_data['new_password']
         user.set_password(new_password)
         user.save()
-
-        return Response(
-            {'message': 'Пароль успешно изменен.'},
-            status=status.HTTP_200_OK
-        )
+        return Response({'message': 'Пароль успешно изменен.'},
+                        status=status.HTTP_200_OK)
 
 
 class TagViewSet(viewsets.ReadOnlyModelViewSet):
