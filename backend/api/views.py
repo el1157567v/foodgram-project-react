@@ -15,11 +15,11 @@ from users.models import Subscription, User
 
 from .filters import IngredientFilter, RecipeFilter
 from .permissions import IsAdminOrReadOnly, IsAuthorOrReadOnly
-from .recipe_user_functions import create_recipe_user, delete_recipe_user
 from .serializers import (ChangePasswordSerializer, CustomUserCreateSerializer,
-                          CustomUserSerializer, IngredientSerializer,
-                          RecipeCreateSerializer, RecipeSerializer,
-                          SubscriptionSerializer,
+                          CustomUserSerializer, FavoriteSerializer,
+                          IngredientSerializer, RecipeCreateSerializer,
+                          RecipeListSerializer, RecipeSerializer,
+                          ShoppingCartSerializer, SubscriptionSerializer,
                           SubscriptionValidateSerializer, TagSerializer)
 
 
@@ -164,11 +164,30 @@ class FavoriteViewSet(viewsets.ModelViewSet):
     @action(methods=['post', 'delete'], detail=True)
     def favorite(self, request, pk):
         """Действия с избранным: добавляем/удаляем рецепт."""
-        if request.method == "POST":
-            data, status = create_recipe_user(request, pk, Favorite)
-            return Response(data, status=status)
-        data, status = delete_recipe_user(request, pk, Favorite)
-        return Response(data, status=status)
+        recipe = get_object_or_404(Recipe, id=pk)
+        favorite = Favorite.objects.filter(user=request.user, recipe=recipe)
+        serializer = FavoriteSerializer(
+                recipe,
+                data=request.data,
+                context={'request': request}
+            )
+        if request.method == 'DELETE' and favorite:
+            favorite.delete()
+            return Response(
+                {'message': 'Рецепт успешно удален из избранного.'},
+                status=status.HTTP_204_NO_CONTENT)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except exceptions.ValidationError as errors_valid_favorite:
+            return Response({'errors': errors_valid_favorite.detail},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        Favorite.objects.create(user=request.user, recipe=recipe)
+        serializer = RecipeListSerializer(
+            recipe,
+            context={'request': request}
+        )
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 class ShoppingCartViewSet(viewsets.ModelViewSet):
@@ -176,11 +195,31 @@ class ShoppingCartViewSet(viewsets.ModelViewSet):
     @action(methods=['post', 'delete'], detail=True)
     def shopping_cart(self, request, pk):
         """Действия с корзиной: добавляем/удаляем рецепт."""
-        if request.method == "POST":
-            data, status = create_recipe_user(request, pk, ShoppingCart)
-            return Response(data, status=status)
-        data, status = delete_recipe_user(request, pk, ShoppingCart)
-        return Response(data, status=status)
+        recipe = get_object_or_404(Recipe, id=pk)
+        shopping_cart = ShoppingCart.objects.filter(user=request.user,
+                                                    recipe=recipe)
+        serializer = ShoppingCartSerializer(
+                recipe,
+                data=request.data,
+                context={'request': request}
+            )
+        if request.method == 'DELETE' and shopping_cart:
+            shopping_cart.delete()
+            return Response(
+                {'message': 'Рецепт успешно удален из корзины покупок.'},
+                status=status.HTTP_204_NO_CONTENT)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except exceptions.ValidationError as errors_valid_shopping_cart:
+            return Response({'errors': errors_valid_shopping_cart.detail},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        ShoppingCart.objects.create(user=request.user, recipe=recipe)
+        serializer = RecipeListSerializer(
+            recipe,
+            context={'request': request}
+        )
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @action(methods=['get'], detail=False,
             permission_classes=[IsAuthenticated])

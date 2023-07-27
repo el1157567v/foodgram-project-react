@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
@@ -14,24 +15,20 @@ class User(AbstractUser):
     )
     username = models.CharField(
         verbose_name='Логин',
-        max_length=150,
         unique=True,
-        null=False,
-        blank=False
+        max_length=settings.MAX_LENGTH_USER
     )
     first_name = models.CharField(
         verbose_name='Имя',
-        max_length=150,
-        blank=False
+        max_length=settings.MAX_LENGTH_USER
     )
     last_name = models.CharField(
         verbose_name='Фамилия',
-        max_length=150,
-        blank=False
+        max_length=settings.MAX_LENGTH_USER
     )
     password = models.CharField(
         verbose_name='Пароль',
-        max_length=150
+        max_length=settings.MAX_LENGTH_USER
     )
 
     USERNAME_FIELD = 'username'

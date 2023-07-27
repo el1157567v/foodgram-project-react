@@ -3,7 +3,8 @@ import base64
 from django.contrib.auth.hashers import check_password
 from django.core.files.base import ContentFile
 from djoser.serializers import UserCreateSerializer, UserSerializer
-from recipes.models import Ingredient, Recipe, RecipeIngredients, Tag
+from recipes.models import (Favorite, Ingredient, Recipe, RecipeIngredients,
+                            ShoppingCart, Tag)
 from rest_framework import serializers
 from users.models import Subscription, User
 
@@ -261,11 +262,44 @@ class RecipeCreateSerializer(RecipeSerializer):
 
     def create_recipe_ingredient(self, recipe, ingredients):
         """Доп.функция: создаем связку рецепт<->ингредиент."""
-        recipe_ingredients = []
-        for ing in ingredients:
-            recipe_ingredient = RecipeIngredients(
+        recipe_ingredients = [
+            RecipeIngredients(
                 recipe=recipe,
                 ingredient_id=ing['id'],
-                amount=ing['amount'])
-            recipe_ingredients.append(recipe_ingredient)
+                amount=ing['amount']
+            )
+            for ing in ingredients
+        ]
         RecipeIngredients.objects.bulk_create(recipe_ingredients)
+
+
+class FavoriteSerializer(serializers.Serializer):
+    """Сериализатор избранного."""
+    def validate(self, data):
+        request = self.context.get('request')
+        recipe = self.instance
+        favorite = Favorite.objects.filter(
+            user=request.user, recipe=recipe).exists()
+        if request.method == 'DELETE' and not favorite:
+            raise serializers.ValidationError(
+                'Рецепт уже удален из избранного.')
+        if favorite:
+            raise serializers.ValidationError(
+                'Рецепт уже добавлен в избранное.')
+        return data
+
+
+class ShoppingCartSerializer(serializers.Serializer):
+    """Сериализатор корзины покупок."""
+    def validate(self, data):
+        request = self.context.get('request')
+        recipe = self.instance
+        shopping_cart = ShoppingCart.objects.filter(
+            user=request.user, recipe=recipe).exists()
+        if request.method == 'DELETE' and not shopping_cart:
+            raise serializers.ValidationError(
+                'Рецепт уже удален из корзины покупок.')
+        if shopping_cart:
+            raise serializers.ValidationError(
+                'Рецепт уже добавлен в корзину покупок.')
+        return data
