@@ -167,10 +167,10 @@ class FavoriteViewSet(viewsets.ModelViewSet):
         recipe = get_object_or_404(Recipe, id=pk)
         favorite = Favorite.objects.filter(user=request.user, recipe=recipe)
         serializer = FavoriteSerializer(
-                recipe,
-                data=request.data,
-                context={'request': request}
-            )
+            recipe,
+            data=request.data,
+            context={'request': request}
+        )
         if request.method == 'DELETE' and favorite:
             favorite.delete()
             return Response(
@@ -199,10 +199,10 @@ class ShoppingCartViewSet(viewsets.ModelViewSet):
         shopping_cart = ShoppingCart.objects.filter(user=request.user,
                                                     recipe=recipe)
         serializer = ShoppingCartSerializer(
-                recipe,
-                data=request.data,
-                context={'request': request}
-            )
+            recipe,
+            data=request.data,
+            context={'request': request}
+        )
         if request.method == 'DELETE' and shopping_cart:
             shopping_cart.delete()
             return Response(
