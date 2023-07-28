@@ -79,6 +79,12 @@ class SubscriptionSerializer(CustomUserSerializer):
             'email', 'id', 'username', 'first_name', 'last_name',
             'is_subscribed', 'recipes', 'recipes_count',
         )
+        extra_kwargs = {
+            'email': {'required': False},
+            'username': {'required': False},
+            'first_name': {'required': False},
+            'last_name': {'required': False},
+        }
         depth = 1
 
     def get_recipes(self, obj):
@@ -98,9 +104,6 @@ class SubscriptionSerializer(CustomUserSerializer):
         """Определяем общее количество рецептов в подписке."""
         return obj.recipes.count()
 
-
-class SubscriptionValidateSerializer(serializers.Serializer):
-    """Сериализатор проверки подписки на других авторов."""
     def validate(self, data):
         request = self.context.get('request')
         author = self.instance
@@ -273,8 +276,17 @@ class RecipeCreateSerializer(RecipeSerializer):
         RecipeIngredients.objects.bulk_create(recipe_ingredients)
 
 
-class FavoriteSerializer(serializers.Serializer):
+class FavoriteSerializer(serializers.ModelSerializer):
     """Сериализатор избранного."""
+    class Meta:
+        model = Recipe
+        fields = ('id', 'name', 'image', 'cooking_time')
+        extra_kwargs = {
+            'name': {'required': False},
+            'image': {'required': False},
+            'cooking_time': {'required': False},
+        }
+
     def validate(self, data):
         request = self.context.get('request')
         recipe = self.instance
@@ -289,8 +301,17 @@ class FavoriteSerializer(serializers.Serializer):
         return data
 
 
-class ShoppingCartSerializer(serializers.Serializer):
+class ShoppingCartSerializer(serializers.ModelSerializer):
     """Сериализатор корзины покупок."""
+    class Meta:
+        model = Recipe
+        fields = ('id', 'name', 'image', 'cooking_time')
+        extra_kwargs = {
+            'name': {'required': False},
+            'image': {'required': False},
+            'cooking_time': {'required': False},
+        }
+
     def validate(self, data):
         request = self.context.get('request')
         recipe = self.instance
