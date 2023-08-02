@@ -150,6 +150,8 @@ class FavoriteViewSet(viewsets.ModelViewSet):
 
 class ShoppingCartViewSet(viewsets.ModelViewSet):
     """Viewset для корзины покупок."""
+    pagination_class = None
+
     @action(methods=['post', 'delete'], detail=True)
     def shopping_cart(self, request, pk):
         """Действия с корзиной: добавляем/удаляем рецепт."""
