@@ -7,12 +7,12 @@ from recipes.models import (Favorite, Ingredient, Recipe, RecipeIngredients,
                             ShoppingCart, Tag)
 from rest_framework import mixins, permissions, status, views, viewsets
 from rest_framework.decorators import action
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from users.models import Subscription, User
 
 from .filters import IngredientFilter, RecipeFilter
+from .paginators import CustomPageNumberPagination
 from .permissions import IsAdminOrReadOnly, IsAuthorOrReadOnly
 from .serializers import (ChangePasswordSerializer, CustomUserCreateSerializer,
                           CustomUserSerializer, FavoriteSerializer,
@@ -119,7 +119,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
     queryset = Recipe.objects.prefetch_related(
         'author', 'tags', 'ingredients').all()
     permission_classes = [IsAuthorOrReadOnly]
-    pagination_class = PageNumberPagination
+    pagination_class = CustomPageNumberPagination
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipeFilter
 
@@ -150,8 +150,6 @@ class FavoriteViewSet(viewsets.ModelViewSet):
 
 class ShoppingCartViewSet(viewsets.ModelViewSet):
     """Viewset для корзины покупок."""
-    pagination_class = None
-
     @action(methods=['post', 'delete'], detail=True)
     def shopping_cart(self, request, pk):
         """Действия с корзиной: добавляем/удаляем рецепт."""
